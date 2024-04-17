@@ -10,9 +10,8 @@ api = API
 class CoinMarket:
 
     def __init__(self):
-
         self.url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
-        self.parameters = {'start': '9', 'limit': '1', 'convert': 'RUB', }
+        self.converts = ["USD", "RUB"]
         self.headers = {'Accepts': 'application/json', 'X-CMC_PRO_API_KEY': f'{api}', }
 
     def get_data(self):
@@ -21,35 +20,42 @@ class CoinMarket:
         session.headers.update(self.headers)
 
         try:
-            response = session.get(self.url, params=self.parameters)
 
-            current_price_rub = json.loads(response.text).get("data")[0].get("quote").get("RUB").get("price")
-            percent_change_1h = json.loads(response.text).get("data")[0].get("quote").get("RUB").get("percent_change_1h")
-            percent_change_24h = json.loads(response.text).get("data")[0].get("quote").get("RUB").get("percent_change_24h")
+            current_price, percent_change_1h, percent_change_24h = {}, {}, {}
 
-            different_data = {}
-            different_data["current_price_rub"] = f"{round(current_price_rub, 2)} ₽"
+            for convert in self.converts:
 
-            if percent_change_1h > 0:
-                different_data["percent_change_1h"] = f"📈 +{round(percent_change_1h, 2)}%"
-            else:
-                different_data["percent_change_1h"] = f"📉 {round(percent_change_1h, 2)}%"
+                parameters = {'start': '3', 'limit': '20', f'convert': convert, }
+                response = session.get(self.url, params=parameters)
 
-            if percent_change_24h > 0:
-                different_data["percent_change_24h"] = f"📈 +{round(percent_change_24h, 2)}%"
-            else:
-                different_data["percent_change_24h"] = f"📉 {round(percent_change_24h, 2)}%"
+                for i in range(len(json.loads(response.text).get("data"))):
 
-            return different_data
+                    price = json.loads(response.text).get("data")[i].get("quote").get(convert).get("price")
+
+                    one_house =\
+                        json.loads(response.text).get("data")[i].get("quote").get(convert).get("percent_change_1h")
+
+                    twenty_four_house =\
+                        json.loads(response.text).get("data")[i].get("quote").get(convert).get("percent_change_24h")
+
+                    if json.loads(response.text).get("data")[i].get("name") == "Toncoin":
+
+                        current_price[convert] = f"{round(price, 2)} ₽" if convert == "RUB" else f"{round(price, 2)} $"
+
+                        percent_change_1h[convert] = f"📈 +{round(one_house, 2)}%" if one_house > 0 else f"📉 {round(one_house, 2)}%"
+
+                        percent_change_24h[convert] =\
+                            f"📈 +{round(twenty_four_house, 2)}%" if twenty_four_house > 0 else f"📉 {round(twenty_four_house, 2)}%"
+
+            data = {"price": current_price, "percent_change_1h": percent_change_1h, "percent_change_24h":percent_change_24h}
+
+            return data
 
         except (ConnectionError, Timeout, TooManyRedirects) as e:
             print(e)
 
+
 if __name__ == '__main__':
     coin = CoinMarket()
-    # print(coin.get_data())
 
-    data = coin.get_data()
-
-    print(data["percent_change_1h"])
-
+    print(coin.get_data())
